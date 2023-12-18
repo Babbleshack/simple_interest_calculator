@@ -4,7 +4,8 @@ use loan::Loan;
 
 use chrono::NaiveDate;
 use clap::Parser;
-use prettytable::Table;
+use loan::Schedule;
+use prettytable::{Row, Table};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 
@@ -82,7 +83,9 @@ fn main() {
         currency,
     );
 
-    let schedule = loan.calculate_schedule();
+    let schedule = Schedule::new(&loan);
+
+    let total_interest = schedule.calculate_interest();
 
     // Create a table
     let mut table = Table::new();
@@ -95,15 +98,11 @@ fn main() {
         "Currency",
     ]);
 
-    let mut total_interest_without_margin = Decimal::zero();
-    let mut total_interest_with_margin = Decimal::zero();
-
-    for entry in schedule.entries.iter() {
+    schedule.entries.iter().for_each(|entry| {
         let formatted_interest_without_margin =
             format!("{:.2}", bankers_round(entry.daily_interest_without_margin));
         let formatted_interest_with_margin =
             format!("{:.2}", bankers_round(entry.daily_interest_with_margin));
-
         table.add_row(row![
             entry.accrual_date,
             entry.days_elapsed,
@@ -111,22 +110,13 @@ fn main() {
             formatted_interest_with_margin,
             loan.currency,
         ]);
-
-        total_interest_without_margin += entry.daily_interest_without_margin;
-        total_interest_with_margin += entry.daily_interest_with_margin;
-    }
-
-    // Total interest rates
-    let formatted_total_interest_without_margin =
-        format!("{:.2}", bankers_round(total_interest_without_margin));
-    let formatted_total_interest_with_margin =
-        format!("{:.2}", bankers_round(total_interest_with_margin));
+    });
 
     table.add_row(row![
         "Total",
         "",
-        formatted_total_interest_without_margin,
-        formatted_total_interest_with_margin,
+        total_interest.without_margin,
+        total_interest.with_margin,
         loan.currency
     ]);
 
