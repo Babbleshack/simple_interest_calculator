@@ -112,21 +112,6 @@ fn bankers_round(money: Money) -> Money {
 }
 
 #[derive(Debug)]
-pub struct Interest(Decimal);
-
-impl From<Decimal> for Interest {
-    fn from(value: Decimal) -> Self {
-        Self(value)
-    }
-}
-
-impl Display for Interest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{:.2}", self.0))
-    }
-}
-
-#[derive(Debug)]
 pub struct Entry {
     pub daily_interest_without_margin: Money,
     pub daily_interest_with_margin: Money,
