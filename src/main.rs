@@ -1,12 +1,12 @@
 mod loan;
 
+use loan::CurrencyCode;
 use loan::Loan;
 
 use chrono::NaiveDate;
 use clap::Parser;
 use loan::Schedule;
-use prettytable::{Row, Table};
-use rust_decimal::prelude::*;
+use prettytable::Table;
 use rust_decimal::Decimal;
 
 #[macro_use]
@@ -28,13 +28,6 @@ fn validate_date_format(value: &str) -> Result<NaiveDate, String> {
     } else {
         Err("Invalid date format. Please use the format YYYY-MM-DD.".to_string())
     }
-}
-
-// Round a Decimal using Banker's Rounding
-// SEE: https://en.wikipedia.org/wiki/Rounding#Rounding_half_to_even
-fn bankers_round(value: Decimal) -> Decimal {
-    let scale = 2;
-    value.round_dp_with_strategy(scale, rust_decimal::RoundingStrategy::MidpointNearestEven)
 }
 
 #[derive(Parser, Debug)]
@@ -70,9 +63,17 @@ fn main() {
     let start_date = args.start_date;
     let end_date = args.end_date;
     let loan_amount = args.loan_amount;
-    let currency = args.loan_currency;
+    let currency_arg = args.loan_currency;
     let base_rate = args.base_interest_rate;
     let margin = args.margin;
+
+    let currency = match CurrencyCode::try_from(currency_arg.as_str()) {
+        Ok(currency) => currency,
+        Err(e) => {
+            eprintln!("Error invalid currency: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     let loan = Loan::new(
         start_date,
@@ -84,8 +85,6 @@ fn main() {
     );
 
     let schedule = Schedule::new(&loan);
-
-    let total_interest = schedule.calculate_interest();
 
     // Create a table
     let mut table = Table::new();
@@ -99,18 +98,16 @@ fn main() {
     ]);
 
     schedule.entries.iter().for_each(|entry| {
-        let formatted_interest_without_margin =
-            format!("{:.2}", bankers_round(entry.daily_interest_without_margin));
-        let formatted_interest_with_margin =
-            format!("{:.2}", bankers_round(entry.daily_interest_with_margin));
         table.add_row(row![
             entry.accrual_date,
             entry.days_elapsed,
-            formatted_interest_without_margin,
-            formatted_interest_with_margin,
+            entry.daily_interest_without_margin,
+            entry.daily_interest_with_margin,
             loan.currency,
         ]);
     });
+
+    let total_interest = schedule.calculate_interest().unwrap();
 
     table.add_row(row![
         "Total",
